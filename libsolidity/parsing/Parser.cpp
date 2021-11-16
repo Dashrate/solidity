@@ -393,7 +393,12 @@ ASTPointer<ContractDefinition> Parser::parseContractDefinition()
 				subNodes.push_back(parseModifierDefinition());
 			else if (currentTokenValue == Token::Event)
 				subNodes.push_back(parseEventDefinition());
-			else if (currentTokenValue == Token::Using)
+			else if (currentTokenValue == Token::Using || (
+				// Workaround because `export` is not a keyword.
+				currentTokenValue == Token::Identifier &&
+				currentLiteral() == "export" &&
+				m_scanner->peekNextToken() == Token::Using
+			))
 				subNodes.push_back(parseUsingDirective());
 			else
 				fatalParserError(9182_error, "Function, variable, struct or modifier declaration expected.");
@@ -991,9 +996,18 @@ ASTPointer<UsingForDirective> Parser::parseUsingDirective()
 		advance();
 	else
 		typeName = parseTypeName();
+	bool global = false;
+	if (
+		m_scanner->currentToken() == Token::Identifier &&
+		currentLiteral() == "global"
+	)
+	{
+		global = true;
+		advance();
+	}
 	nodeFactory.markEndPosition();
 	expectToken(Token::Semicolon);
-	return nodeFactory.createNode<UsingForDirective>(move(functions), usesBraces, typeName);
+	return nodeFactory.createNode<UsingForDirective>(move(functions), usesBraces, typeName, global);
 }
 
 ASTPointer<ModifierInvocation> Parser::parseModifierInvocation()
